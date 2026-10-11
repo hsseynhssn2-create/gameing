@@ -47,6 +47,7 @@ $$('.play-btn').forEach(btn => btn.addEventListener('click', () => {
   if (type === 'reaction') startReaction();
   if (type === 'guess') startGuess();
   if (type === 'memory') startMemory();
+  if (type === 'horror') startHorror();
 }));
 
 function startReaction() {
@@ -105,4 +106,100 @@ function startMemory() {
     if(player.length===sequence.length){ accepting=false; level++; setTimeout(nextRound,600); }
   }));
   $('#memoryStart').addEventListener('click',()=>{sequence=[];player=[];level=1;$('#memoryStart').textContent='إعادة من البداية';nextRound();});
+}
+
+
+function startHorror() {
+  let hasKey = false;
+  let hasNote = false;
+  let steps = 0;
+  let ended = false;
+  const scenes = {
+    entrance: {
+      icon: '🏚️', title: 'مدخل القصر',
+      text: 'تفتح عينيك في مدخل قصر مهجور. الباب الرئيسي مقفول، والهواء بارد. تسمع همسة من الممر: «المفتاح قريب…»',
+      choices: [
+        ['📚 فتّش المكتبة', 'library'],
+        ['🚪 امشِ في الممر', 'hallway'],
+        ['🔐 جرّب الباب الرئيسي', 'front']
+      ]
+    },
+    library: {
+      icon: '📚', title: 'المكتبة القديمة',
+      text: 'الغبار يغطي الكتب، وكتاب أخضر بارز من الرف. خلفه تلمع قطعة معدنية صغيرة.',
+      choices: [
+        ['🔎 فتّش خلف الكتاب', 'findKey'],
+        ['↩️ ارجع للمدخل', 'entrance'],
+        ['🚪 اتجه للباب الرئيسي', 'front']
+      ]
+    },
+    hallway: {
+      icon: '🕯️', title: 'الممر الطويل',
+      text: 'المصابيح تومض، وصوت خطوات يتردد خلفك ثم يتوقف فجأة. أمامك باب المكتبة أو المدخل.',
+      choices: [
+        ['📚 ادخل المكتبة', 'library'],
+        ['↩️ ارجع للمدخل', 'entrance'],
+        ['🚪 اتجه للباب الرئيسي', 'front']
+      ]
+    },
+    front: {
+      icon: '🚪', title: 'الباب الرئيسي',
+      text: 'تجرب المقبض… الباب لا يتحرك. هناك مكان صغير للمفتاح بجانب القفل.',
+      choices: [
+        ['🗝️ استخدم المفتاح', 'escape'],
+        ['↩️ ارجع للمدخل', 'entrance'],
+        ['📚 دور في المكتبة', 'library']
+      ]
+    }
+  };
+
+  openGame('👻 الهروب من القصر', `<p>هدفك: اعثر على المفتاح واخرج من القصر. اللعبة مغامرة غموض خفيفة وتشتغل باللمس على الموبايل.</p><div id="horrorGame"></div><button id="horrorRestart">إعادة من البداية</button>`);
+
+  function render(sceneId, message = '') {
+    if (ended) return;
+    const scene = scenes[sceneId];
+    const choices = scene.choices.map(([label, target], i) => {
+      const disabled = target === 'escape' && !hasKey;
+      return `<button class="horror-choice" data-target="${target}" ${disabled ? 'disabled' : ''}>${label}${disabled ? ' 🔒' : ''}</button>`;
+    }).join('');
+    $('#horrorGame').innerHTML = `
+      <div class="horror-stats"><span>🗝️ المفتاح: ${hasKey ? 'معاك' : 'لسه'}</span><span>👣 خطواتك: ${steps}</span></div>
+      <div class="horror-scene"><div class="scene-icon">${scene.icon}</div><h3>${scene.title}</h3><p>${message || scene.text}</p></div>
+      <div class="horror-choices">${choices}</div>`;
+    $$('.horror-choice', $('#horrorGame')).forEach(btn => btn.addEventListener('click', () => act(btn.dataset.target)));
+  }
+
+  function act(target) {
+    if (ended) return;
+    steps++;
+    if (target === 'findKey') {
+      if (!hasKey) {
+        hasKey = true;
+        render('library', 'لقيت المفتاح النحاسي! في نفس اللحظة تسمع صوت باب يُغلق في مكان بعيد. دلوقتي ارجع للباب الرئيسي واخرج.');
+      } else {
+        render('library', 'فتشت هنا بالفعل. المفتاح معاك؛ لازم توصل للباب الرئيسي.');
+      }
+      return;
+    }
+    if (target === 'escape') {
+      if (!hasKey) {
+        render('front', 'القفل لا يستجيب. لازم تلاقي المفتاح في المكتبة الأول.');
+        return;
+      }
+      ended = true;
+      $('#horrorGame').innerHTML = `<div class="horror-scene"><div class="scene-icon">🌅</div><h3>نجحت في الهروب!</h3><p>الباب اتفتح، وخرجت قبل ما الفجر يطلع. صوت الهمس اختفى… لكن على المفتاح محفور رمز التنين.</p><p class="horror-ending">النهاية الجيدة — عدد خطواتك: ${steps}</p></div><p>تقدر تلعب تاني وتجرب طريق مختلف.</p>`;
+      return;
+    }
+    if (target === 'front' && !hasKey) {
+      render('front', 'الباب مقفول بإحكام. القفل محتاج مفتاح نحاسي؛ دور في المكتبة القديمة.');
+      return;
+    }
+    render(target);
+  }
+
+  $('#horrorRestart').addEventListener('click', () => {
+    hasKey = false; hasNote = false; steps = 0; ended = false;
+    render('entrance');
+  });
+  render('entrance');
 }
